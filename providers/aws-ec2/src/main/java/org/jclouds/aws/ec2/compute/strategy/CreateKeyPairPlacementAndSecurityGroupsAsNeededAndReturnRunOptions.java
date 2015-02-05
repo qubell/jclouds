@@ -19,6 +19,7 @@ package org.jclouds.aws.ec2.compute.strategy;
 import static com.google.common.base.Predicates.and;
 import static com.google.common.base.Predicates.or;
 
+import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
 import javax.annotation.Resource;
@@ -27,6 +28,7 @@ import javax.inject.Named;
 import javax.inject.Provider;
 import javax.inject.Singleton;
 
+import com.google.common.collect.ImmutableSet;
 import org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions;
 import org.jclouds.aws.ec2.domain.RegionNameAndPublicKeyMaterial;
 import org.jclouds.aws.ec2.functions.CreatePlacementGroupIfNeeded;
@@ -64,6 +66,14 @@ public class CreateKeyPairPlacementAndSecurityGroupsAsNeededAndReturnRunOptions 
    @VisibleForTesting
    final Function<RegionNameAndPublicKeyMaterial, KeyPair> importExistingKeyPair;
 
+   final static Set<String> hardwareWithPlacementGroups = ImmutableSet.of(
+           "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge",
+           "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge",
+           "cc2.8xlarge", "cg1.4xlarge", "g2.2xlarge", "cr1.8xlarge",
+           "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge",
+           "hi1.4xlarge", "hs1.8xlarge", "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge"
+   );
+
    @Inject
    public CreateKeyPairPlacementAndSecurityGroupsAsNeededAndReturnRunOptions(
          Function<RegionAndName, KeyPair> makeKeyPair, ConcurrentMap<RegionAndName, KeyPair> credentialsMap,
@@ -83,7 +93,7 @@ public class CreateKeyPairPlacementAndSecurityGroupsAsNeededAndReturnRunOptions 
       AWSRunInstancesOptions instanceOptions = AWSRunInstancesOptions.class
             .cast(super.execute(region, group, template));
 
-      String placementGroupName = template.getHardware().getId().startsWith("cc") ? createNewPlacementGroupUnlessUserSpecifiedOtherwise(
+      String placementGroupName = (hardwareWithPlacementGroups.contains(template.getHardware().getId())) ? createNewPlacementGroupUnlessUserSpecifiedOtherwise(
             region, group, template.getOptions()) : null;
 
       if (placementGroupName != null)
