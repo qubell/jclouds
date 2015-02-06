@@ -16,17 +16,7 @@
  */
 package org.jclouds.aws.ec2.compute.options;
 
-import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.authorizePublicKey;
-import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.blockOnPort;
-import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.enableMonitoring;
-import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.iamInstanceProfileArn;
-import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.iamInstanceProfileName;
-import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.inboundPorts;
-import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.installPrivateKey;
-import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.keyPair;
-import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.noKeyPair;
-import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.securityGroupIds;
-import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.securityGroups;
+import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.*;
 import static org.testng.Assert.assertEquals;
 
 import java.io.IOException;
@@ -414,5 +404,16 @@ public class AWSEC2TemplateOptionsTest {
    @Test(expectedExceptions = NullPointerException.class)
    public void testIAMInstanceProfileNameNPE() {
       iamInstanceProfileName(null);
+   }
+
+   @Test
+   public void testPrivateIpAddressStatic() {
+      AWSEC2TemplateOptions options = privateIpAddress("10.0.0.1");
+      assertEquals(options.getPrivateIpAddress(), "10.0.0.1");
+   }
+
+   @Test(expectedExceptions = NullPointerException.class)
+   public void testPrivateIpAddressNPE() {
+      privateIpAddress(null);
    }
 }
