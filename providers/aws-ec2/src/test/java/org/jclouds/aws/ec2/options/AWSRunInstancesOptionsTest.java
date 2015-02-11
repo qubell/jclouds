@@ -16,18 +16,7 @@
  */
 package org.jclouds.aws.ec2.options;
 
-import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.asType;
-import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.enableMonitoring;
-import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.withBlockDeviceMappings;
-import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.withIAMInstanceProfileArn;
-import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.withIAMInstanceProfileName;
-import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.withKernelId;
-import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.withKeyName;
-import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.withRamdisk;
-import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.withSecurityGroup;
-import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.withSecurityGroupId;
-import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.withSubnetId;
-import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.withUserData;
+import static org.jclouds.aws.ec2.options.AWSRunInstancesOptions.Builder.*;
 import static org.testng.Assert.assertEquals;
 
 import org.jclouds.ec2.domain.BlockDeviceMapping;
@@ -371,6 +360,17 @@ public class AWSRunInstancesOptionsTest {
    @Test(expectedExceptions = NullPointerException.class)
    public void testWithBlockDeviceMappingNPE() {
       withBlockDeviceMappings(null);
+   }
+
+   @Test
+   public void testWithPrivateIpAddressStatic() {
+      AWSRunInstancesOptions options = withPrivateIpAdress("10.0.0.1");
+      assertEquals(options.buildFormParameters().get("PrivateIpAddress"), ImmutableList.of("10.0.0.1"));
+   }
+
+   @Test(expectedExceptions = NullPointerException.class)
+   public void testWithPrivateIpAddressStaticNPE() {
+      withPrivateIpAdress(null);
    }
 
 }
