@@ -28,6 +28,8 @@ import javax.inject.Named;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.common.Buffer.BufferException;
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
+import net.schmizz.sshj.userauth.keyprovider.KeyPairWrapper;
+import net.schmizz.sshj.userauth.keyprovider.KeyProvider;
 import net.schmizz.sshj.userauth.keyprovider.OpenSSHKeyFile;
 import net.schmizz.sshj.userauth.method.AuthMethod;
 
@@ -162,6 +164,9 @@ public class SSHClientConnection implements Connection<SSHClient> {
       } else if (loginCredentials.hasUnencryptedPrivateKey()) {
          OpenSSHKeyFile key = new OpenSSHKeyFile();
          key.init(loginCredentials.getPrivateKey(), null);
+         ssh.authPublickey(loginCredentials.getUser(), key);
+      } else if (loginCredentials.hasJceKeyPair()) {
+         KeyProvider key = new KeyPairWrapper(loginCredentials.getKeyPair());
          ssh.authPublickey(loginCredentials.getUser(), key);
       } else if (agentConnector.isPresent()) {
          AgentProxy proxy = new AgentProxy(agentConnector.get());

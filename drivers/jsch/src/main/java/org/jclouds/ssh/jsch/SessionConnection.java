@@ -174,6 +174,8 @@ public final class SessionConnection implements Connection<Session> {
       } else if (loginCredentials.hasUnencryptedPrivateKey()) {
          byte[] privateKey = loginCredentials.getPrivateKey().getBytes();
          jsch.addIdentity(loginCredentials.getUser(), privateKey, null, emptyPassPhrase);
+      } else if (loginCredentials.hasJceKeyPair()) {
+         throw new IllegalArgumentException("JCE keypairs are not supported by jclouds-jsch");
       } else if (agentConnector.isPresent()) {
          JSch.setConfig("PreferredAuthentications", "publickey");
          jsch.setIdentityRepository(new RemoteIdentityRepository(agentConnector.get()));
