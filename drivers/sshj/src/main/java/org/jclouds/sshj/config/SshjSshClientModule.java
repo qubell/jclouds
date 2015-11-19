@@ -34,6 +34,8 @@ import com.google.inject.Scopes;
 import com.jcraft.jsch.agentproxy.AgentProxyException;
 import com.jcraft.jsch.agentproxy.Connector;
 import com.jcraft.jsch.agentproxy.ConnectorFactory;
+import net.schmizz.sshj.Config;
+import net.schmizz.sshj.DefaultConfig;
 
 /**
  * 
@@ -51,6 +53,9 @@ public class SshjSshClientModule extends AbstractModule {
       @Named(Constants.PROPERTY_CONNECTION_TIMEOUT)
       @Inject(optional = true)
       int timeout = 60000;
+
+      @Inject(optional = true)
+      Config config = new DefaultConfig();
 
       Optional<Connector> agentConnector = getAgentConnector();
 
@@ -73,7 +78,7 @@ public class SshjSshClientModule extends AbstractModule {
 
       @Override
       public SshClient create(HostAndPort socket, LoginCredentials credentials) {
-         SshClient client = new SshjSshClient(backoffLimitedRetryHandler, socket, credentials, timeout, getAgentConnector());
+         SshClient client = new SshjSshClient(backoffLimitedRetryHandler, socket, credentials, timeout, getAgentConnector(), config);
          injector.injectMembers(client);// add logger
          return client;
       }

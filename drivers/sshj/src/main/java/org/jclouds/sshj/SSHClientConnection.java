@@ -25,6 +25,7 @@ import java.util.List;
 import javax.annotation.Resource;
 import javax.inject.Named;
 
+import net.schmizz.sshj.Config;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.common.Buffer.BufferException;
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
@@ -62,6 +63,7 @@ public class SSHClientConnection implements Connection<SSHClient> {
       protected int connectTimeout;
       protected int sessionTimeout;
       protected Optional<Connector> agentConnector;
+      protected Config config;
 
       /**
        * @see SSHClientConnection#getHostAndPort()
@@ -103,23 +105,29 @@ public class SSHClientConnection implements Connection<SSHClient> {
          return this;
       }
 
+      public Builder config(Config config) {
+         this.config = config;
+         return this;
+      }
+
       public SSHClientConnection build() {
-         return new SSHClientConnection(hostAndPort, loginCredentials, connectTimeout, sessionTimeout, agentConnector);
+         return new SSHClientConnection(hostAndPort, loginCredentials, connectTimeout, sessionTimeout, agentConnector, config);
       }
 
       protected Builder fromSSHClientConnection(SSHClientConnection in) {
          return hostAndPort(in.getHostAndPort()).connectTimeout(in.getConnectTimeout()).loginCredentials(
-                  in.getLoginCredentials()).sessionTimeout(in.getSessionTimeout()).agentConnector(in.getAgentConnector());
+                  in.getLoginCredentials()).sessionTimeout(in.getSessionTimeout()).agentConnector(in.getAgentConnector()).config(in.config);
       }
    }
 
    private SSHClientConnection(HostAndPort hostAndPort, LoginCredentials loginCredentials, int connectTimeout,
-            int sessionTimeout, Optional<Connector> agentConnector) {
+            int sessionTimeout, Optional<Connector> agentConnector, Config config) {
       this.hostAndPort = checkNotNull(hostAndPort, "hostAndPort");
       this.loginCredentials = checkNotNull(loginCredentials, "loginCredentials for %", hostAndPort);
       this.connectTimeout = connectTimeout;
       this.sessionTimeout = sessionTimeout;
       this.agentConnector = checkNotNull(agentConnector, "agentConnector for %", hostAndPort);
+      this.config = config;
    }
    
    @Resource
@@ -130,6 +138,7 @@ public class SSHClientConnection implements Connection<SSHClient> {
    private final LoginCredentials loginCredentials;
    private final int connectTimeout;
    private final int sessionTimeout;
+   private final Config config;
 
    @VisibleForTesting
    transient SSHClient ssh;
@@ -150,7 +159,7 @@ public class SSHClientConnection implements Connection<SSHClient> {
 
    @Override
    public SSHClient create() throws Exception {
-      ssh = new net.schmizz.sshj.SSHClient();
+      ssh = new net.schmizz.sshj.SSHClient(config);
       ssh.addHostKeyVerifier(new PromiscuousVerifier());
       if (connectTimeout != 0) {
          ssh.setConnectTimeout(connectTimeout);

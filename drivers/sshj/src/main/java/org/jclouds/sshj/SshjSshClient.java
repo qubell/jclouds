@@ -41,6 +41,8 @@ import javax.annotation.PreDestroy;
 import javax.annotation.Resource;
 import javax.inject.Named;
 
+import net.schmizz.sshj.Config;
+import net.schmizz.sshj.DefaultConfig;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.common.IOUtils;
 import net.schmizz.sshj.connection.ConnectionException;
@@ -60,6 +62,7 @@ import org.jclouds.domain.LoginCredentials;
 import org.jclouds.http.handlers.BackoffLimitedRetryHandler;
 import org.jclouds.io.Payload;
 import org.jclouds.io.Payloads;
+import org.jclouds.javax.annotation.Nullable;
 import org.jclouds.logging.Logger;
 import org.jclouds.rest.AuthorizationException;
 import org.jclouds.ssh.SshClient;
@@ -143,7 +146,8 @@ public class SshjSshClient implements SshClient {
    private final BackoffLimitedRetryHandler backoffLimitedRetryHandler;
 
    public SshjSshClient(BackoffLimitedRetryHandler backoffLimitedRetryHandler, HostAndPort socket,
-            LoginCredentials loginCredentials, int timeout, Optional<Connector> agentConnector) {
+            LoginCredentials loginCredentials, int timeout, Optional<Connector> agentConnector,
+            Config config) {
       this.user = checkNotNull(loginCredentials, "loginCredentials").getUser();
       this.host = checkNotNull(socket, "socket").getHostText();
       checkArgument(socket.getPort() > 0, "ssh port must be greater then zero" + socket.getPort());
@@ -158,13 +162,17 @@ public class SshjSshClient implements SshClient {
          String fingerPrint = fingerprintPrivateKey(loginCredentials.getPrivateKey());
          String sha1 = sha1PrivateKey(loginCredentials.getPrivateKey());
          this.toString = String.format("%s:rsa[fingerprint(%s),sha1(%s)]@%s:%d", loginCredentials.getUser(),
-                  fingerPrint, sha1, host, socket.getPort());
+                 fingerPrint, sha1, host, socket.getPort());
+      } else if (loginCredentials.hasJceKeyPair()) {
+         this.toString = String.format("%s:jce[keypair(%s)]@%s:%d", loginCredentials.getUser(),
+                 loginCredentials.getKeyPair(), host, socket.getPort());
       } else {
           this.toString = String.format("%s:rsa[ssh-agent]@%s:%d", loginCredentials.getUser(),
                   host, socket.getPort());
       }
       sshClientConnection = SSHClientConnection.builder().hostAndPort(HostAndPort.fromParts(host, socket.getPort()))
-               .loginCredentials(loginCredentials).connectTimeout(timeout).sessionTimeout(timeout).agentConnector(agentConnector).build();
+               .loginCredentials(loginCredentials).connectTimeout(timeout).sessionTimeout(timeout)
+               .agentConnector(agentConnector).config(config == null ? new DefaultConfig() : config).build();
    }
 
    @Override
