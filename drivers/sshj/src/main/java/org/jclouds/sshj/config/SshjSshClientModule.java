@@ -25,6 +25,7 @@ import org.jclouds.ssh.SshClient;
 import org.jclouds.ssh.config.ConfiguresSshClient;
 import org.jclouds.sshj.SshjSshClient;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.net.HostAndPort;
 import com.google.inject.AbstractModule;
@@ -36,6 +37,10 @@ import com.jcraft.jsch.agentproxy.Connector;
 import com.jcraft.jsch.agentproxy.ConnectorFactory;
 import net.schmizz.sshj.Config;
 import net.schmizz.sshj.DefaultConfig;
+import net.schmizz.sshj.userauth.method.AuthMethod;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * 
@@ -48,14 +53,24 @@ public class SshjSshClientModule extends AbstractModule {
       bind(SshClient.Factory.class).to(Factory.class).in(Scopes.SINGLETON);
    }
 
+   public abstract static class AuthMethodFactory {
+      public abstract Optional<AuthMethod> create(LoginCredentials credentials);
+   }
 
-   private static class Factory implements SshClient.Factory {
+   @VisibleForTesting
+   static class Factory implements SshClient.Factory {
       @Named(Constants.PROPERTY_CONNECTION_TIMEOUT)
       @Inject(optional = true)
       int timeout = 60000;
 
       @Inject(optional = true)
+      @VisibleForTesting
       Config config = new DefaultConfig();
+
+      @Inject(optional = true)
+      @Named("jclouds.ssh.sshj-auth-methods")
+      @VisibleForTesting
+      List<AuthMethodFactory> authMethodFactories = Collections.emptyList();
 
       Optional<Connector> agentConnector = getAgentConnector();
 
@@ -78,7 +93,7 @@ public class SshjSshClientModule extends AbstractModule {
 
       @Override
       public SshClient create(HostAndPort socket, LoginCredentials credentials) {
-         SshClient client = new SshjSshClient(backoffLimitedRetryHandler, socket, credentials, timeout, getAgentConnector(), config);
+         SshClient client = new SshjSshClient(backoffLimitedRetryHandler, socket, credentials, timeout, getAgentConnector(), config, authMethodFactories);
          injector.injectMembers(client);// add logger
          return client;
       }

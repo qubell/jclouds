@@ -64,6 +64,7 @@ public class SSHClientConnection implements Connection<SSHClient> {
       protected int sessionTimeout;
       protected Optional<Connector> agentConnector;
       protected Config config;
+      protected List<AuthMethod> authMethods;
 
       /**
        * @see SSHClientConnection#getHostAndPort()
@@ -110,24 +111,31 @@ public class SSHClientConnection implements Connection<SSHClient> {
          return this;
       }
 
+      public Builder authMethods(List<AuthMethod> authMethods) {
+         this.authMethods = authMethods;
+         return this;
+      }
+
       public SSHClientConnection build() {
-         return new SSHClientConnection(hostAndPort, loginCredentials, connectTimeout, sessionTimeout, agentConnector, config);
+         return new SSHClientConnection(hostAndPort, loginCredentials, connectTimeout, sessionTimeout, agentConnector, config, authMethods);
       }
 
       protected Builder fromSSHClientConnection(SSHClientConnection in) {
-         return hostAndPort(in.getHostAndPort()).connectTimeout(in.getConnectTimeout()).loginCredentials(
-                  in.getLoginCredentials()).sessionTimeout(in.getSessionTimeout()).agentConnector(in.getAgentConnector()).config(in.config);
+         return hostAndPort(in.getHostAndPort()).connectTimeout(in.getConnectTimeout()).
+                 config(in.config).authMethods(in.authMethods).loginCredentials(
+                  in.getLoginCredentials()).sessionTimeout(in.getSessionTimeout()).agentConnector(in.getAgentConnector());
       }
    }
 
    private SSHClientConnection(HostAndPort hostAndPort, LoginCredentials loginCredentials, int connectTimeout,
-            int sessionTimeout, Optional<Connector> agentConnector, Config config) {
+            int sessionTimeout, Optional<Connector> agentConnector, Config config, List<AuthMethod> authMethods) {
       this.hostAndPort = checkNotNull(hostAndPort, "hostAndPort");
       this.loginCredentials = checkNotNull(loginCredentials, "loginCredentials for %", hostAndPort);
       this.connectTimeout = connectTimeout;
       this.sessionTimeout = sessionTimeout;
       this.agentConnector = checkNotNull(agentConnector, "agentConnector for %", hostAndPort);
       this.config = config;
+      this.authMethods = authMethods;
    }
    
    @Resource
@@ -139,6 +147,7 @@ public class SSHClientConnection implements Connection<SSHClient> {
    private final int connectTimeout;
    private final int sessionTimeout;
    private final Config config;
+   private final List<AuthMethod> authMethods;
 
    @VisibleForTesting
    transient SSHClient ssh;
@@ -168,7 +177,9 @@ public class SSHClientConnection implements Connection<SSHClient> {
          ssh.setTimeout(sessionTimeout);
       }
       ssh.connect(hostAndPort.getHostText(), hostAndPort.getPortOrDefault(22));
-      if (loginCredentials.getPassword() != null) {
+      if (authMethods != null && !authMethods.isEmpty()) {
+         ssh.auth(loginCredentials.getUser(), authMethods);
+      } else if (loginCredentials.getPassword() != null) {
          ssh.authPassword(loginCredentials.getUser(), loginCredentials.getPassword());
       } else if (loginCredentials.hasUnencryptedPrivateKey()) {
          OpenSSHKeyFile key = new OpenSSHKeyFile();

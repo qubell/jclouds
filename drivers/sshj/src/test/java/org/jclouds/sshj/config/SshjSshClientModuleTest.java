@@ -20,11 +20,19 @@ import org.jclouds.domain.LoginCredentials;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.ssh.SshClient;
 import org.jclouds.sshj.SshjSshClient;
+import com.google.inject.AbstractModule;
+import com.google.inject.TypeLiteral;
+import com.google.inject.name.Names;
+import net.schmizz.sshj.Config;
+import net.schmizz.sshj.DefaultConfig;
 import org.testng.annotations.Test;
 
 import com.google.common.net.HostAndPort;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Tests the ability to configure a {@link SshjSshClient}
@@ -41,5 +49,33 @@ public class SshjSshClientModuleTest {
       SshClient connection = factory.create(HostAndPort.fromParts("localhost", 22), LoginCredentials.builder().user("username")
             .password("password").build());
       assert connection instanceof SshjSshClient;
+   }
+
+   private class SshjConfigModule extends AbstractModule {
+
+      public static final String VERSION = "42";
+
+      @Override
+      protected void configure() {
+         Config config = new DefaultConfig();
+         config.setVersion(VERSION);
+         bind(Config.class).toInstance(config);
+         List<SshjSshClientModule.AuthMethodFactory> methods = new ArrayList<SshjSshClientModule.AuthMethodFactory>();
+         methods.add(null);
+         bind(new TypeLiteral<List<SshjSshClientModule.AuthMethodFactory>>() {
+         }).annotatedWith(Names.named("jclouds.ssh.sshj-auth-methods")).toInstance(methods);
+      }
+   }
+
+   public void testConfigurationBinding() {
+      Injector i = Guice.createInjector(new SshjSshClientModule(), new SLF4JLoggingModule(), new SshjConfigModule());
+      Config config = ((SshjSshClientModule.Factory)i.getInstance(SshClient.Factory.class)).config;
+      assert config.getVersion().equals(SshjConfigModule.VERSION);
+   }
+
+   public void testAuthMethodsBinding() {
+      Injector i = Guice.createInjector(new SshjSshClientModule(), new SLF4JLoggingModule(), new SshjConfigModule());
+      List<SshjSshClientModule.AuthMethodFactory> authMethods = ((SshjSshClientModule.Factory)i.getInstance(SshClient.Factory.class)).authMethodFactories;
+      assert authMethods.size() == 1;
    }
 }
