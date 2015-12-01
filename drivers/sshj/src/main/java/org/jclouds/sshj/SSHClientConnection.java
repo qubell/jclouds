@@ -25,9 +25,12 @@ import java.util.List;
 import javax.annotation.Resource;
 import javax.inject.Named;
 
+import net.schmizz.sshj.Config;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.common.Buffer.BufferException;
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
+import net.schmizz.sshj.userauth.keyprovider.KeyPairWrapper;
+import net.schmizz.sshj.userauth.keyprovider.KeyProvider;
 import net.schmizz.sshj.userauth.keyprovider.OpenSSHKeyFile;
 import net.schmizz.sshj.userauth.method.AuthMethod;
 
@@ -60,6 +63,8 @@ public class SSHClientConnection implements Connection<SSHClient> {
       protected int connectTimeout;
       protected int sessionTimeout;
       protected Optional<Connector> agentConnector;
+      protected Config config;
+      protected List<AuthMethod> authMethods;
 
       /**
        * @see SSHClientConnection#getHostAndPort()
@@ -101,23 +106,36 @@ public class SSHClientConnection implements Connection<SSHClient> {
          return this;
       }
 
+      public Builder config(Config config) {
+         this.config = config;
+         return this;
+      }
+
+      public Builder authMethods(List<AuthMethod> authMethods) {
+         this.authMethods = authMethods;
+         return this;
+      }
+
       public SSHClientConnection build() {
-         return new SSHClientConnection(hostAndPort, loginCredentials, connectTimeout, sessionTimeout, agentConnector);
+         return new SSHClientConnection(hostAndPort, loginCredentials, connectTimeout, sessionTimeout, agentConnector, config, authMethods);
       }
 
       protected Builder fromSSHClientConnection(SSHClientConnection in) {
-         return hostAndPort(in.getHostAndPort()).connectTimeout(in.getConnectTimeout()).loginCredentials(
+         return hostAndPort(in.getHostAndPort()).connectTimeout(in.getConnectTimeout()).
+                 config(in.config).authMethods(in.authMethods).loginCredentials(
                   in.getLoginCredentials()).sessionTimeout(in.getSessionTimeout()).agentConnector(in.getAgentConnector());
       }
    }
 
    private SSHClientConnection(HostAndPort hostAndPort, LoginCredentials loginCredentials, int connectTimeout,
-            int sessionTimeout, Optional<Connector> agentConnector) {
+            int sessionTimeout, Optional<Connector> agentConnector, Config config, List<AuthMethod> authMethods) {
       this.hostAndPort = checkNotNull(hostAndPort, "hostAndPort");
       this.loginCredentials = checkNotNull(loginCredentials, "loginCredentials for %", hostAndPort);
       this.connectTimeout = connectTimeout;
       this.sessionTimeout = sessionTimeout;
       this.agentConnector = checkNotNull(agentConnector, "agentConnector for %", hostAndPort);
+      this.config = config;
+      this.authMethods = authMethods;
    }
    
    @Resource
@@ -128,6 +146,8 @@ public class SSHClientConnection implements Connection<SSHClient> {
    private final LoginCredentials loginCredentials;
    private final int connectTimeout;
    private final int sessionTimeout;
+   private final Config config;
+   private final List<AuthMethod> authMethods;
 
    @VisibleForTesting
    transient SSHClient ssh;
@@ -148,7 +168,7 @@ public class SSHClientConnection implements Connection<SSHClient> {
 
    @Override
    public SSHClient create() throws Exception {
-      ssh = new net.schmizz.sshj.SSHClient();
+      ssh = new net.schmizz.sshj.SSHClient(config);
       ssh.addHostKeyVerifier(new PromiscuousVerifier());
       if (connectTimeout != 0) {
          ssh.setConnectTimeout(connectTimeout);
@@ -157,11 +177,16 @@ public class SSHClientConnection implements Connection<SSHClient> {
          ssh.setTimeout(sessionTimeout);
       }
       ssh.connect(hostAndPort.getHostText(), hostAndPort.getPortOrDefault(22));
-      if (loginCredentials.getPassword() != null) {
+      if (authMethods != null && !authMethods.isEmpty()) {
+         ssh.auth(loginCredentials.getUser(), authMethods);
+      } else if (loginCredentials.getPassword() != null) {
          ssh.authPassword(loginCredentials.getUser(), loginCredentials.getPassword());
       } else if (loginCredentials.hasUnencryptedPrivateKey()) {
          OpenSSHKeyFile key = new OpenSSHKeyFile();
          key.init(loginCredentials.getPrivateKey(), null);
+         ssh.authPublickey(loginCredentials.getUser(), key);
+      } else if (loginCredentials.hasJceKeyPair()) {
+         KeyProvider key = new KeyPairWrapper(loginCredentials.getKeyPair());
          ssh.authPublickey(loginCredentials.getUser(), key);
       } else if (agentConnector.isPresent()) {
          AgentProxy proxy = new AgentProxy(agentConnector.get());

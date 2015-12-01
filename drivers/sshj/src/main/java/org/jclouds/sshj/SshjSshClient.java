@@ -35,12 +35,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.Resource;
 import javax.inject.Named;
 
+import net.schmizz.sshj.Config;
+import net.schmizz.sshj.DefaultConfig;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.common.IOUtils;
 import net.schmizz.sshj.connection.ConnectionException;
@@ -52,6 +56,7 @@ import net.schmizz.sshj.sftp.SFTPClient;
 import net.schmizz.sshj.sftp.SFTPException;
 import net.schmizz.sshj.transport.TransportException;
 import net.schmizz.sshj.userauth.UserAuthException;
+import net.schmizz.sshj.userauth.method.AuthMethod;
 import net.schmizz.sshj.xfer.InMemorySourceFile;
 
 import org.jclouds.compute.domain.ExecChannel;
@@ -60,10 +65,12 @@ import org.jclouds.domain.LoginCredentials;
 import org.jclouds.http.handlers.BackoffLimitedRetryHandler;
 import org.jclouds.io.Payload;
 import org.jclouds.io.Payloads;
+import org.jclouds.javax.annotation.Nullable;
 import org.jclouds.logging.Logger;
 import org.jclouds.rest.AuthorizationException;
 import org.jclouds.ssh.SshClient;
 import org.jclouds.ssh.SshException;
+import org.jclouds.sshj.config.SshjSshClientModule;
 import org.jclouds.util.Closeables2;
 import org.jclouds.util.Throwables2;
 
@@ -143,12 +150,20 @@ public class SshjSshClient implements SshClient {
    private final BackoffLimitedRetryHandler backoffLimitedRetryHandler;
 
    public SshjSshClient(BackoffLimitedRetryHandler backoffLimitedRetryHandler, HostAndPort socket,
-            LoginCredentials loginCredentials, int timeout, Optional<Connector> agentConnector) {
+            LoginCredentials loginCredentials, int timeout, Optional<Connector> agentConnector,
+            Config config, List<SshjSshClientModule.AuthMethodFactory> authMethodFactories) {
       this.user = checkNotNull(loginCredentials, "loginCredentials").getUser();
       this.host = checkNotNull(socket, "socket").getHostText();
+      List<AuthMethod> authMethods = new ArrayList<AuthMethod>();
+      for (SshjSshClientModule.AuthMethodFactory authMethodFactory : authMethodFactories) {
+         Optional<AuthMethod> method = authMethodFactory.create(loginCredentials);
+         if (method.isPresent()) {
+            authMethods.add(method.get());
+         }
+      }
       checkArgument(socket.getPort() > 0, "ssh port must be greater then zero" + socket.getPort());
-      checkArgument(loginCredentials.getPassword() != null || loginCredentials.hasUnencryptedPrivateKey() || agentConnector.isPresent(),
-              "you must specify a password, a key or an SSH agent needs to be available");
+      checkArgument(loginCredentials.getPassword() != null || loginCredentials.hasUnencryptedPrivateKey() || loginCredentials.hasJceKeyPair() || agentConnector.isPresent() || !authMethods.isEmpty(),
+              "you must specify a password, a key, auth methods or an SSH agent needs to be available");
       this.backoffLimitedRetryHandler = checkNotNull(backoffLimitedRetryHandler, "backoffLimitedRetryHandler");
       if (loginCredentials.getPassword() != null) {
          this.toString = String.format("%s:pw[%s]@%s:%d", loginCredentials.getUser(),
@@ -158,13 +173,18 @@ public class SshjSshClient implements SshClient {
          String fingerPrint = fingerprintPrivateKey(loginCredentials.getPrivateKey());
          String sha1 = sha1PrivateKey(loginCredentials.getPrivateKey());
          this.toString = String.format("%s:rsa[fingerprint(%s),sha1(%s)]@%s:%d", loginCredentials.getUser(),
-                  fingerPrint, sha1, host, socket.getPort());
+                 fingerPrint, sha1, host, socket.getPort());
+      } else if (loginCredentials.hasJceKeyPair()) {
+         this.toString = String.format("%s:jce[keypair(%s)]@%s:%d", loginCredentials.getUser(),
+                 loginCredentials.getKeyPair(), host, socket.getPort());
       } else {
           this.toString = String.format("%s:rsa[ssh-agent]@%s:%d", loginCredentials.getUser(),
                   host, socket.getPort());
       }
       sshClientConnection = SSHClientConnection.builder().hostAndPort(HostAndPort.fromParts(host, socket.getPort()))
-               .loginCredentials(loginCredentials).connectTimeout(timeout).sessionTimeout(timeout).agentConnector(agentConnector).build();
+               .loginCredentials(loginCredentials).connectTimeout(timeout).sessionTimeout(timeout)
+               .agentConnector(agentConnector).config(config == null ? new DefaultConfig() : config)
+               .authMethods(authMethods).build();
    }
 
    @Override

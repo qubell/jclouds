@@ -24,6 +24,8 @@ import org.jclouds.javax.annotation.Nullable;
 
 import com.google.common.base.Optional;
 
+import java.security.KeyPair;
+
 /**
  * @author Adrian Cole
  */
@@ -59,6 +61,7 @@ public class LoginCredentials extends Credentials {
       private boolean authenticateSudo;
       private Optional<String> password;
       private Optional<String> privateKey;
+      private Optional<KeyPair> keyPair;
 
       public Builder identity(String identity) {
          return Builder.class.cast(super.identity(identity));
@@ -72,6 +75,8 @@ public class LoginCredentials extends Credentials {
          this.password = Optional.fromNullable(password);
          if (privateKey == null)
             noPrivateKey();
+         if (keyPair == null)
+            noKeyPair();
          return this;
       }
 
@@ -84,11 +89,27 @@ public class LoginCredentials extends Credentials {
          this.privateKey = Optional.fromNullable(privateKey);
          if (password == null)
             noPassword();
+         if (keyPair == null)
+            noKeyPair();
          return this;
       }
 
       public Builder noPrivateKey() {
          this.privateKey = Optional.absent();
+         return this;
+      }
+
+      public Builder keyPair(KeyPair keyPair) {
+         this.keyPair = Optional.fromNullable(keyPair);
+         if (password == null)
+            noPassword();
+         if (privateKey == null)
+            noPrivateKey();
+         return this;
+      }
+
+      public Builder noKeyPair() {
+         this.keyPair = Optional.absent();
          return this;
       }
 
@@ -106,23 +127,25 @@ public class LoginCredentials extends Credentials {
       }
 
       public LoginCredentials build() {
-         if (identity == null && password == null && privateKey == null && !authenticateSudo)
+         if (identity == null && password == null && privateKey == null && keyPair == null && !authenticateSudo)
             return null;
-         return new LoginCredentials(identity, password, privateKey, authenticateSudo);
+         return new LoginCredentials(identity, password, privateKey, keyPair, authenticateSudo);
       }
    }
 
    private final boolean authenticateSudo;
    private final Optional<String> password;
    private final Optional<String> privateKey;
+   private final Optional<KeyPair> keyPair;
 
-   private LoginCredentials(String username, @Nullable Optional<String> password, @Nullable Optional<String> privateKey, boolean authenticateSudo) {
+   private LoginCredentials(String username, @Nullable Optional<String> password, @Nullable Optional<String> privateKey, @Nullable Optional<KeyPair> keyPair, boolean authenticateSudo) {
       super(username, privateKey != null && privateKey.isPresent() && isPrivateKeyCredential(privateKey.get())
                     ? privateKey.get()
                     : (password != null && password.isPresent() ? password.get() : null));
       this.authenticateSudo = authenticateSudo;
       this.password = password;
       this.privateKey = privateKey;
+      this.keyPair = keyPair;
    }
 
    /**
@@ -157,12 +180,26 @@ public class LoginCredentials extends Credentials {
    }
 
    /**
+    * @return the ssh key pair of the user or null
+    */
+   public KeyPair getKeyPair() {
+      return (keyPair != null) ? keyPair.orNull() : null;
+   }
+
+   /**
     * @return true if there is a private key attached that is not encrypted
     */
    public boolean hasUnencryptedPrivateKey() {
       return getPrivateKey() != null
          && !getPrivateKey().isEmpty()
          && !getPrivateKey().contains(Pems.PROC_TYPE_ENCRYPTED);
+   }
+
+   /**
+    * @return true if there is a jce private key attached
+    */
+   public boolean hasJceKeyPair() {
+      return getKeyPair() != null;
    }
 
    /**
@@ -209,6 +246,7 @@ public class LoginCredentials extends Credentials {
    public String toString() {
       return "[user=" + getUser() + ", passwordPresent=" + (password != null ? password.isPresent() : false)
             + ", privateKeyPresent=" + (privateKey != null ? privateKey.isPresent() : false)
+            + ", keyPairPresent=" + (keyPair != null ? keyPair.isPresent() : false)
             + ", shouldAuthenticateSudo=" + authenticateSudo + "]";
    }
 }
