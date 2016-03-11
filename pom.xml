@@ -22,7 +22,7 @@
   <parent>
     <groupId>org.apache.jclouds</groupId>
     <artifactId>jclouds-project</artifactId>        
-    <version>1.7.4-SNAPSHOT</version>
+    <version>1.7.4-QUBELL-2015.12.16</version>
     <relativePath>project/pom.xml</relativePath>
   </parent>
   <artifactId>jclouds</artifactId>
@@ -47,10 +47,15 @@
     <module>all</module>
   </modules>
     <distributionManagement>
+    <repository>
+        <id>aws-release</id>
+        <name>AWS S3 Release Repository</name>
+        <url>s3://cometera-mvn-repo/releases</url>
+    </repository>
     <snapshotRepository>
       <id>aws-snapshot</id>
       <name>AWS Snapshot Repository</name>
-      <url>s3://cometera-mvn-repo/snapshot</url>
+      <url>s3://cometera-mvn-repo/snapshots</url>
     </snapshotRepository>
   </distributionManagement>
   <build>
