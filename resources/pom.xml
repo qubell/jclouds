@@ -22,7 +22,7 @@
   <parent>
     <artifactId>jclouds-project</artifactId>
     <groupId>org.apache.jclouds</groupId>
-    <version>1.7.4-QUBELL-2015.12.16</version>
+    <version>1.7.4-QUBELL-2016.05.18</version>
     <relativePath>../project/pom.xml</relativePath>
   </parent>    
   <artifactId>jclouds-resources</artifactId>
